@@ -1,0 +1,31 @@
+{
+  "name": "filedase",
+  "version": "1.0.0",
+  "description": "nodejs json base file db",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/Gaubee/filedase.git"
+  },
+  "keywords": [
+    "database",
+    "firebase",
+    "filebase"
+  ],
+  "author": "Gaubee",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Gaubee/filedase/issues"
+  },
+  "homepage": "https://github.com/Gaubee/filedase#readme",
+  "dependencies": {
+    "@types/node": "^8.0.31",
+    "dateformat": "^3.0.2"
+  },
+  "devDependencies": {
+    "@types/dateformat": "^1.0.1"
+  }
+}
