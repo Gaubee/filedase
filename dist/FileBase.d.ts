@@ -10,7 +10,7 @@ export default class FileBase extends EventEmitter {
     private _db;
     db_file_path: string;
     constructor(db_file_name: string, db_root: string);
-    id_key: string;
+    id_key: any;
     readonly backup_file_path: string;
     backup(backup_file_path?: string): void;
     just_in_memory: boolean;
