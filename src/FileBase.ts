@@ -34,7 +34,7 @@ export default class FileBase extends EventEmitter {
         }
         this.refreshIndex();
     }
-    id_key = '_id';
+    id_key: any = '_id';
     get backup_file_path() {
         return this.db_root + this.db_file_name + '.bak.json';
     }
