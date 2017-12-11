@@ -10,13 +10,15 @@ class FileBase extends events_1.EventEmitter {
         super();
         this.db_file_name = db_file_name;
         this.db_root = db_root;
+        this.id_key = '_id';
+        this.just_in_memory = false;
         this._ti = {};
         //排序函数
         this._sortBy = helper_1.sortBy;
         this._obj_has = helper_1.obj_has;
         this.db_file_name = path.basename(this.db_file_name);
-        if (!db_file_name.endsWith(".fdb.js")) {
-            throw new URIError("filebase filename must endwith .fdb.js");
+        if (!db_file_name.endsWith('.fdb.js')) {
+            throw new URIError('filebase filename must endwith .fdb.js');
         }
         this.db_root = path.normalize(this.db_root) + path.sep;
         helper_1.mkdirSync(this.db_root);
@@ -27,27 +29,31 @@ class FileBase extends events_1.EventEmitter {
         }
         else {
             this._db = {};
-            this.__file_content = "";
+            this.__file_content = '';
         }
         this.refreshIndex();
     }
     get backup_file_path() {
-        return this.db_root + this.db_file_name + ".bak.json";
+        return this.db_root + this.db_file_name + '.bak.json';
     }
     backup(backup_file_path = this.backup_file_path) {
-        console.time("parse_data");
+        console.time('parse_data');
         var _data = JSON.stringify(this._db);
-        console.timeEnd("parse_data");
-        console.time("update_data");
+        console.timeEnd('parse_data');
+        console.time('update_data');
         if (_data) {
             fs.writeFileSync(backup_file_path, _data);
         }
-        console.timeEnd("update_data");
+        console.timeEnd('update_data');
     }
     __updateCache(tableName, range_start, range_end) {
+        if (this.just_in_memory) {
+            return;
+        }
         var table = this._db[tableName];
         if (range_start) {
-            range_start = Math.floor(range_start / PRE_FILE_RANGE) * PRE_FILE_RANGE;
+            range_start =
+                Math.floor(range_start / PRE_FILE_RANGE) * PRE_FILE_RANGE;
         }
         else {
             range_start = 0;
@@ -56,7 +62,8 @@ class FileBase extends events_1.EventEmitter {
             range_end = Math.ceil(range_end / PRE_FILE_RANGE) * PRE_FILE_RANGE; // Math.min(range_end, table.length)
         }
         else {
-            range_end = Math.ceil(table.length / PRE_FILE_RANGE) * PRE_FILE_RANGE;
+            range_end =
+                Math.ceil(table.length / PRE_FILE_RANGE) * PRE_FILE_RANGE;
         }
         var _range_start = range_start;
         var _range_end = Math.min(range_end, _range_start + PRE_FILE_RANGE);
@@ -64,22 +71,22 @@ class FileBase extends events_1.EventEmitter {
         while (_range_start < _range_end) {
             _task_name = ` <${tableName}>[${_range_start}, ${_range_end}]`;
             //取出指定范围的数据，解析成JSON
-            console.time("[parse  data]" + _task_name);
+            console.time('[parse  data]' + _task_name);
             var _data = table.slice(_range_start, _range_end);
             _data = JSON.stringify(_data);
-            console.timeEnd("[parse  data]" + _task_name);
+            console.timeEnd('[parse  data]' + _task_name);
             //写入文件
-            console.time("[update data]" + _task_name);
+            console.time('[update data]' + _task_name);
             var _file_name = `${tableName}-${_range_start}-${_range_end}.json`;
-            fs.writeFileSync(this.db_root + "/" + _file_name, _data);
-            console.timeEnd("[update data]" + _task_name);
+            fs.writeFileSync(this.db_root + '/' + _file_name, _data);
+            console.timeEnd('[update data]' + _task_name);
             //将数据文件写入集合
             if (this.__file_content.indexOf(_file_name) == -1) {
                 var _placeholder = `\/\/---${tableName}---\n`;
                 if (this.__file_content.indexOf(`\/\/---${tableName}---`) === -1) {
                     this.__file_content += `exports.${tableName} = [];\n${_placeholder}`;
                 }
-                this.__file_content = this.__file_content.replace(_placeholder, `	exports.${tableName} = exports.${tableName}.concat(require('./${_file_name}'));\n${_placeholder}`);
+                this.__file_content = this.__file_content.replace(_placeholder, `    exports.${tableName} = exports.${tableName}.concat(require('./${_file_name}'));\n${_placeholder}`);
             }
             _range_start = _range_end;
             _range_end = Math.min(range_end, _range_end + PRE_FILE_RANGE);
@@ -101,6 +108,7 @@ class FileBase extends events_1.EventEmitter {
         if (_to_end) {
             _range_end = Math.ceil(_index / PRE_FILE_RANGE) * PRE_FILE_RANGE;
             if (_range_start == _range_end) {
+                //1000:index:0~999
                 _range_end += PRE_FILE_RANGE;
             }
         }
@@ -117,17 +125,20 @@ class FileBase extends events_1.EventEmitter {
         }
         var table_index = this._index[table_name];
         //根据ID判断是否存在这条数据，避免update后再insert，确保ID唯一性
-        if (!table_index[obj._id]) {
+        if (!table_index[obj[this.id_key]]) {
+            //新数据，直接插入
             var __index = table.push(obj) - 1;
         }
         else {
-            return this.update(table_name, obj._id || index, obj);
+            //update模式
+            return this.update(table_name, obj[this.id_key] || index, obj);
         }
-        if (obj._id || (obj._id = index)) {
-            table_index[obj._id] = obj;
+        if (obj[this.id_key] || (obj[this.id_key] = index)) {
+            //更新索引
+            table_index[obj[this.id_key]] = obj;
         }
         this._updateCacheByIndex(table_name, __index);
-        this.emit("insert", table_name, obj);
+        this.emit('insert', table_name, obj);
     }
     update(table_name, obj_index, obj, _is_cover) {
         table_name = table_name.toLowerCase();
@@ -145,9 +156,9 @@ class FileBase extends events_1.EventEmitter {
                     }
                 }
             }
-            obj._id = obj_index;
+            obj[this.id_key] = obj_index;
             //更新索引的对象
-            this._index[table_name][old_obj._id] = old_obj;
+            this._index[table_name][old_obj[this.id_key]] = old_obj;
             this._updateCacheByIndex(table_name, this._db[table_name].indexOf(old_obj));
         }
         else {
@@ -193,7 +204,7 @@ class FileBase extends events_1.EventEmitter {
     find_list(table_name, obj, num, page) {
         num || (num = Number.MAX_VALUE);
         page || (page = 0);
-        var _start_index = (num * page) || 0;
+        var _start_index = num * page || 0;
         table_name = table_name.toLowerCase();
         var table = this._db[table_name];
         var result = [];
@@ -221,8 +232,8 @@ class FileBase extends events_1.EventEmitter {
             return;
         }
         var __index = false;
-        table.every(function (obj, index) {
-            if (obj && obj._id === obj_index) {
+        table.every((obj, index) => {
+            if (obj && obj[this.id_key] === obj_index) {
                 __index = index;
                 //保持数据长度，替换为无用的null对象
                 table.splice(index, 1, null);
@@ -239,8 +250,8 @@ class FileBase extends events_1.EventEmitter {
     }
     remove_list(table_name, obj) {
         var remover_list = this.find_list(table_name, obj);
-        remover_list.forEach((remover) => {
-            this.remove(table_name, remover._id);
+        remover_list.forEach(remover => {
+            this.remove(table_name, remover[this.id_key]);
         });
     }
     remove_all(table_name) {
@@ -253,8 +264,8 @@ class FileBase extends events_1.EventEmitter {
         table_name = table_name.toLowerCase();
         var table = this._db[table_name];
         var new_table = [];
-        table.forEach(function (item) {
-            if (item._id) {
+        table.forEach(item => {
+            if (item[this.id_key]) {
                 new_table.push(item);
             }
         });
@@ -272,7 +283,7 @@ class FileBase extends events_1.EventEmitter {
         }
     }
     _create_table(tableName) {
-        var tablePath = this.db_root + "/" + tableName;
+        var tablePath = this.db_root + '/' + tableName;
         var _no_need_create_dir = false;
         if (fs.existsSync(tablePath)) {
             _no_need_create_dir = fs.statSync(tablePath).isDirectory();
@@ -283,40 +294,41 @@ class FileBase extends events_1.EventEmitter {
     }
     _refreshIndex_by_tableName(tableName) {
         if (this._db.hasOwnProperty(tableName)) {
-            var table = this._index[tableName] = {};
+            var table = (this._index[tableName] = {});
             var _arr = this._db[tableName];
             if (_arr instanceof Array) {
                 for (var i = 0, len = _arr.length; i < len; i += 1) {
                     var obj = _arr[i];
                     if (!obj) {
+                        //空对象，忽略过
                         continue;
                     }
-                    var old_obj = table[obj._id];
+                    var old_obj = table[obj[this.id_key]];
                     if (old_obj) {
                         //删除冗余数据
                         _arr.splice(_arr.indexOf(old_obj), 1);
                         i -= 1;
                     }
-                    table[obj._id] = obj;
+                    table[obj[this.id_key]] = obj;
                 }
             }
         }
     }
     mulCall(method, args) {
         var method_name_map = {
-            "insert": "insert",
-            "findAll": "find_all",
-            "findOne": "find_one",
-            "findById": "find_by_id",
-            "findList": "find_list",
-            "update": "update",
-            "remove": "remove",
+            insert: 'insert',
+            findAll: 'find_all',
+            findOne: 'find_one',
+            findById: 'find_by_id',
+            findList: 'find_list',
+            update: 'update',
+            remove: 'remove'
         };
         var method_foo = this[method_name_map[method]];
         if (!method_foo) {
             throw new TypeError(`method: ${method} no found.`);
         }
-        return args.map((params) => {
+        return args.map(params => {
             return method_foo.apply(this, params);
         });
     }

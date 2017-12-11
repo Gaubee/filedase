@@ -34,6 +34,7 @@ export default class FileBase extends EventEmitter {
         }
         this.refreshIndex();
     }
+    id_key = '_id';
     get backup_file_path() {
         return this.db_root + this.db_file_name + '.bak.json';
     }
@@ -145,16 +146,16 @@ export default class FileBase extends EventEmitter {
         }
         var table_index = this._index[table_name];
         //根据ID判断是否存在这条数据，避免update后再insert，确保ID唯一性
-        if (!table_index[obj._id]) {
+        if (!table_index[obj[this.id_key]]) {
             //新数据，直接插入
             var __index = table.push(obj) - 1;
         } else {
             //update模式
-            return this.update(table_name, obj._id || index, obj);
+            return this.update(table_name, obj[this.id_key] || index, obj);
         }
-        if (obj._id || (obj._id = index)) {
+        if (obj[this.id_key] || (obj[this.id_key] = index)) {
             //更新索引
-            table_index[obj._id] = obj;
+            table_index[obj[this.id_key]] = obj;
         }
 
         this._updateCacheByIndex(table_name, __index);
@@ -182,9 +183,9 @@ export default class FileBase extends EventEmitter {
                     }
                 }
             }
-            obj._id = obj_index;
+            obj[this.id_key] = obj_index;
             //更新索引的对象
-            this._index[table_name][old_obj._id] = old_obj;
+            this._index[table_name][old_obj[this.id_key]] = old_obj;
             this._updateCacheByIndex(
                 table_name,
                 this._db[table_name].indexOf(old_obj)
@@ -274,8 +275,8 @@ export default class FileBase extends EventEmitter {
             return;
         }
         var __index: false | number = false;
-        table.every(function(obj, index) {
-            if (obj && obj._id === obj_index) {
+        table.every((obj, index) => {
+            if (obj && obj[this.id_key] === obj_index) {
                 __index = index;
                 //保持数据长度，替换为无用的null对象
                 table.splice(index, 1, null);
@@ -293,7 +294,7 @@ export default class FileBase extends EventEmitter {
     remove_list(table_name: string, obj: any) {
         var remover_list = this.find_list(table_name, obj);
         remover_list.forEach(remover => {
-            this.remove(table_name, remover._id);
+            this.remove(table_name, remover[this.id_key]);
         });
     }
     remove_all(table_name: string) {
@@ -306,8 +307,8 @@ export default class FileBase extends EventEmitter {
         table_name = table_name.toLowerCase();
         var table: any[] = this._db[table_name];
         var new_table: any[] = [];
-        table.forEach(function(item) {
-            if (item._id) {
+        table.forEach(item => {
+            if (item[this.id_key]) {
                 new_table.push(item);
             }
         });
@@ -345,13 +346,13 @@ export default class FileBase extends EventEmitter {
                         //空对象，忽略过
                         continue;
                     }
-                    var old_obj = table[obj._id];
+                    var old_obj = table[obj[this.id_key]];
                     if (old_obj) {
                         //删除冗余数据
                         _arr.splice(_arr.indexOf(old_obj), 1);
                         i -= 1;
                     }
-                    table[obj._id] = obj;
+                    table[obj[this.id_key]] = obj;
                 }
             }
         }
