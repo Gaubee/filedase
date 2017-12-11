@@ -103,6 +103,7 @@ export default class FileBase extends EventEmitter {
             _range_start = _range_end;
             _range_end = Math.min(range_end, _range_end + PRE_FILE_RANGE);
         }
+
         _task_name && fs.writeFileSync(this.db_file_path, this.__file_content);
     }
     private _ti: { [key: string]: NodeJS.Timer } = {};
@@ -266,7 +267,7 @@ export default class FileBase extends EventEmitter {
     }
     find_all<T = any>(table_name: string): T[] {
         table_name = table_name.toLowerCase();
-        return this._db[table_name] || [];
+        return this._db[table_name].filter((v: any) => v !== null) || [];
     }
     remove(table_name: string, obj_index: string) {
         table_name = table_name.toLowerCase();
