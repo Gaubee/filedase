@@ -1,6 +1,6 @@
-import { EventEmitter } from "events";
-import fs = require("fs");
-import path = require("path");
+import { EventEmitter } from 'events';
+import fs = require('fs');
+import path = require('path');
 import { obj_has, sortBy, mkdirSync } from './helper';
 
 const PRE_FILE_RANGE = 1000;
@@ -10,12 +10,15 @@ export default class FileBase extends EventEmitter {
     private _index: any;
     private _db: any;
     db_file_path: string;
-    constructor(public readonly db_file_name: string, public readonly db_root: string) {
+    constructor(
+        public readonly db_file_name: string,
+        public readonly db_root: string
+    ) {
         super();
 
         this.db_file_name = path.basename(this.db_file_name);
-        if (!db_file_name.endsWith(".fdb.js")) {
-            throw new URIError("filebase filename must endwith .fdb.js");
+        if (!db_file_name.endsWith('.fdb.js')) {
+            throw new URIError('filebase filename must endwith .fdb.js');
         }
 
         this.db_root = path.normalize(this.db_root) + path.sep;
@@ -27,34 +30,44 @@ export default class FileBase extends EventEmitter {
             this.__file_content = fs.readFileSync(this.db_file_path).toString();
         } else {
             this._db = {};
-            this.__file_content = "";
+            this.__file_content = '';
         }
         this.refreshIndex();
     }
     get backup_file_path() {
-        return this.db_root + this.db_file_name + ".bak.json";
+        return this.db_root + this.db_file_name + '.bak.json';
     }
     backup(backup_file_path: string = this.backup_file_path) {
-        console.time("parse_data");
-        var _data = JSON.stringify(this._db)
-        console.timeEnd("parse_data");
-        console.time("update_data");
+        console.time('parse_data');
+        var _data = JSON.stringify(this._db);
+        console.timeEnd('parse_data');
+        console.time('update_data');
         if (_data) {
             fs.writeFileSync(backup_file_path, _data);
         }
-        console.timeEnd("update_data");
+        console.timeEnd('update_data');
     }
-    private __updateCache(tableName: string, range_start?: number, range_end?: number) {
+    just_in_memory = false;
+    private __updateCache(
+        tableName: string,
+        range_start?: number,
+        range_end?: number
+    ) {
+        if (this.just_in_memory) {
+            return;
+        }
         var table = this._db[tableName];
         if (range_start) {
-            range_start = Math.floor(range_start / PRE_FILE_RANGE) * PRE_FILE_RANGE;
+            range_start =
+                Math.floor(range_start / PRE_FILE_RANGE) * PRE_FILE_RANGE;
         } else {
-            range_start = 0
+            range_start = 0;
         }
         if (range_end) {
             range_end = Math.ceil(range_end / PRE_FILE_RANGE) * PRE_FILE_RANGE; // Math.min(range_end, table.length)
         } else {
-            range_end = Math.ceil(table.length / PRE_FILE_RANGE) * PRE_FILE_RANGE
+            range_end =
+                Math.ceil(table.length / PRE_FILE_RANGE) * PRE_FILE_RANGE;
         }
         var _range_start = range_start;
         var _range_end = Math.min(range_end, _range_start + PRE_FILE_RANGE);
@@ -62,33 +75,41 @@ export default class FileBase extends EventEmitter {
         while (_range_start < _range_end) {
             _task_name = ` <${tableName}>[${_range_start}, ${_range_end}]`;
             //取出指定范围的数据，解析成JSON
-            console.time("[parse  data]" + _task_name);
-            var _data = table.slice(_range_start, _range_end)
+            console.time('[parse  data]' + _task_name);
+            var _data = table.slice(_range_start, _range_end);
             _data = JSON.stringify(_data);
-            console.timeEnd("[parse  data]" + _task_name);
+            console.timeEnd('[parse  data]' + _task_name);
 
             //写入文件
-            console.time("[update data]" + _task_name);
+            console.time('[update data]' + _task_name);
             var _file_name = `${tableName}-${_range_start}-${_range_end}.json`;
-            fs.writeFileSync(this.db_root + "/" + _file_name, _data);
-            console.timeEnd("[update data]" + _task_name);
+            fs.writeFileSync(this.db_root + '/' + _file_name, _data);
+            console.timeEnd('[update data]' + _task_name);
 
             //将数据文件写入集合
             if (this.__file_content.indexOf(_file_name) == -1) {
-                var _placeholder = `\/\/---${tableName}---\n`
-                if (this.__file_content.indexOf(`\/\/---${tableName}---`) === -1) {
-                    this.__file_content += `exports.${tableName} = [];\n${_placeholder}`
+                var _placeholder = `\/\/---${tableName}---\n`;
+                if (
+                    this.__file_content.indexOf(`\/\/---${tableName}---`) === -1
+                ) {
+                    this.__file_content += `exports.${tableName} = [];\n${_placeholder}`;
                 }
-                this.__file_content = this.__file_content.replace(_placeholder,
-                    `	exports.${tableName} = exports.${tableName}.concat(require('./${_file_name}'));\n${_placeholder}`)
+                this.__file_content = this.__file_content.replace(
+                    _placeholder,
+                    `    exports.${tableName} = exports.${tableName}.concat(require('./${_file_name}'));\n${_placeholder}`
+                );
             }
             _range_start = _range_end;
             _range_end = Math.min(range_end, _range_end + PRE_FILE_RANGE);
         }
         _task_name && fs.writeFileSync(this.db_file_path, this.__file_content);
     }
-    private _ti: { [key: string]: NodeJS.Timer } = {}
-    private _updateCache(tableName: string, range_start?: number, range_end?: number) {
+    private _ti: { [key: string]: NodeJS.Timer } = {};
+    private _updateCache(
+        tableName: string,
+        range_start?: number,
+        range_end?: number
+    ) {
         var ti_key = `${tableName}-${range_start}-${range_end}`;
         clearTimeout(this._ti[ti_key]);
         this._ti[ti_key] = setTimeout(() => {
@@ -96,13 +117,18 @@ export default class FileBase extends EventEmitter {
             delete this._ti[ti_key];
         }, 1000);
     }
-    private _updateCacheByIndex(tableName: string, _index: any, _to_end?: boolean) {
+    private _updateCacheByIndex(
+        tableName: string,
+        _index: any,
+        _to_end?: boolean
+    ) {
         //一千条数据为一个范围
         var _range_start = Math.floor(_index / PRE_FILE_RANGE) * PRE_FILE_RANGE;
         var _range_end;
         if (_to_end) {
             _range_end = Math.ceil(_index / PRE_FILE_RANGE) * PRE_FILE_RANGE;
-            if (_range_start == _range_end) {//1000:index:0~999
+            if (_range_start == _range_end) {
+                //1000:index:0~999
                 _range_end += PRE_FILE_RANGE;
             }
         }
@@ -119,20 +145,28 @@ export default class FileBase extends EventEmitter {
         }
         var table_index = this._index[table_name];
         //根据ID判断是否存在这条数据，避免update后再insert，确保ID唯一性
-        if (!table_index[obj._id]) { //新数据，直接插入
+        if (!table_index[obj._id]) {
+            //新数据，直接插入
             var __index = table.push(obj) - 1;
-        } else { //update模式
-            return this.update(table_name, obj._id || index, obj)
+        } else {
+            //update模式
+            return this.update(table_name, obj._id || index, obj);
         }
-        if (obj._id || (obj._id = index)) { //更新索引
+        if (obj._id || (obj._id = index)) {
+            //更新索引
             table_index[obj._id] = obj;
         }
 
         this._updateCacheByIndex(table_name, __index);
 
-        this.emit("insert", table_name, obj);
+        this.emit('insert', table_name, obj);
     }
-    update(table_name: string, obj_index: string, obj: any, _is_cover?: boolean) {
+    update(
+        table_name: string,
+        obj_index: string,
+        obj: any,
+        _is_cover?: boolean
+    ) {
         table_name = table_name.toLowerCase();
         var old_obj = this.find_by_id(table_name, obj_index);
         if (old_obj) {
@@ -144,26 +178,29 @@ export default class FileBase extends EventEmitter {
             if (_is_cover) {
                 for (var key in old_obj) {
                     if (!obj.hasOwnProperty(key)) {
-                        delete old_obj[key]
+                        delete old_obj[key];
                     }
                 }
             }
             obj._id = obj_index;
             //更新索引的对象
             this._index[table_name][old_obj._id] = old_obj;
-            this._updateCacheByIndex(table_name, this._db[table_name].indexOf(old_obj));
+            this._updateCacheByIndex(
+                table_name,
+                this._db[table_name].indexOf(old_obj)
+            );
         } else {
             this.insert(table_name, obj, obj_index);
         }
     }
-    find_by_id(table_name: string, id: string) {
+    find_by_id<T = any>(table_name: string, id: string): T | undefined {
         table_name = table_name.toLowerCase();
         var table_index = this._index[table_name];
         if (table_index) {
             return table_index[id];
         }
     }
-    find_one(table_name: string, obj: any) {
+    find_one<T = any>(table_name: string, obj: any): T | undefined {
         table_name = table_name.toLowerCase();
         var table = this._db[table_name];
         if (table instanceof Array) {
@@ -175,13 +212,18 @@ export default class FileBase extends EventEmitter {
             }
         }
     }
-    find_last_one(table_name: string, obj: any, sort_key: string, no_asc?: boolean) {
+    find_last_one<T = any>(
+        table_name: string,
+        obj: any,
+        sort_key: string,
+        no_asc?: boolean
+    ): T | undefined {
         //默认是大~小
         table_name = table_name.toLowerCase();
         var table = this._db[table_name];
         var result;
         if (table instanceof Array) {
-            table = this._sortBy(table, sort_key, !no_asc)
+            table = this._sortBy(table, sort_key, !no_asc);
             for (var i = table.length - 1, item_obj; i >= 0; i -= 1) {
                 item_obj = table[i];
                 if (item_obj && obj_has(item_obj, obj)) {
@@ -192,27 +234,36 @@ export default class FileBase extends EventEmitter {
         }
         return result;
     }
-    find_list(table_name: string, obj: any, num?: number, page?: number) {
+    find_list<T = any>(
+        table_name: string,
+        obj: any,
+        num?: number,
+        page?: number
+    ): T[] {
         num || (num = Number.MAX_VALUE);
         page || (page = 0);
-        var _start_index = (num * page) || 0;
+        var _start_index = num * page || 0;
         table_name = table_name.toLowerCase();
         var table = this._db[table_name];
         var result = [];
         if (table instanceof Array) {
-            for (var i = _start_index, item_obj, len = table.length; i < len; i += 1) {
+            for (
+                var i = _start_index, item_obj, len = table.length;
+                i < len;
+                i += 1
+            ) {
                 item_obj = table[i];
                 if (item_obj && obj_has(item_obj, obj)) {
-                    result.push(item_obj)
+                    result.push(item_obj);
                 }
                 if (result.length > num) {
-                    break
+                    break;
                 }
             }
         }
         return result;
     }
-    find_all(table_name: string) {
+    find_all<T = any>(table_name: string): T[] {
         table_name = table_name.toLowerCase();
         return this._db[table_name] || [];
     }
@@ -220,10 +271,10 @@ export default class FileBase extends EventEmitter {
         table_name = table_name.toLowerCase();
         var table = this._db[table_name];
         if (!(table instanceof Array)) {
-            return
+            return;
         }
         var __index: false | number = false;
-        table.every(function (obj, index) {
+        table.every(function(obj, index) {
             if (obj && obj._id === obj_index) {
                 __index = index;
                 //保持数据长度，替换为无用的null对象
@@ -241,7 +292,7 @@ export default class FileBase extends EventEmitter {
     }
     remove_list(table_name: string, obj: any) {
         var remover_list = this.find_list(table_name, obj);
-        remover_list.forEach((remover) => {
+        remover_list.forEach(remover => {
             this.remove(table_name, remover._id);
         });
     }
@@ -255,9 +306,9 @@ export default class FileBase extends EventEmitter {
         table_name = table_name.toLowerCase();
         var table: any[] = this._db[table_name];
         var new_table: any[] = [];
-        table.forEach(function (item) {
+        table.forEach(function(item) {
             if (item._id) {
-                new_table.push(item)
+                new_table.push(item);
             }
         });
         this._db[table_name] = new_table;
@@ -274,23 +325,24 @@ export default class FileBase extends EventEmitter {
         }
     }
     private _create_table(tableName: string) {
-        var tablePath = this.db_root + "/" + tableName;
+        var tablePath = this.db_root + '/' + tableName;
         var _no_need_create_dir = false;
         if (fs.existsSync(tablePath)) {
-            _no_need_create_dir = fs.statSync(tablePath).isDirectory()
+            _no_need_create_dir = fs.statSync(tablePath).isDirectory();
         }
         if (!_no_need_create_dir) {
-            fs.mkdirSync(tablePath)
+            fs.mkdirSync(tablePath);
         }
     }
     private _refreshIndex_by_tableName(tableName: string) {
         if (this._db.hasOwnProperty(tableName)) {
-            var table: any = this._index[tableName] = {};
+            var table: any = (this._index[tableName] = {});
             var _arr = this._db[tableName];
             if (_arr instanceof Array) {
                 for (var i = 0, len = _arr.length; i < len; i += 1) {
                     var obj = _arr[i];
-                    if (!obj) { //空对象，忽略过
+                    if (!obj) {
+                        //空对象，忽略过
                         continue;
                     }
                     var old_obj = table[obj._id];
@@ -306,24 +358,23 @@ export default class FileBase extends EventEmitter {
     }
     mulCall(method: string, args: any[]) {
         var method_name_map = {
-            "insert": "insert",
-            "findAll": "find_all",
-            "findOne": "find_one",
-            "findById": "find_by_id",
-            "findList": "find_list",
-            "update": "update",
-            "remove": "remove",
-        }
+            insert: 'insert',
+            findAll: 'find_all',
+            findOne: 'find_one',
+            findById: 'find_by_id',
+            findList: 'find_list',
+            update: 'update',
+            remove: 'remove'
+        };
         var method_foo = (<any>this)[(<any>method_name_map)[method]];
         if (!method_foo) {
             throw new TypeError(`method: ${method} no found.`);
         }
-        return args.map((params) => {
-            return method_foo.apply(this, params)
+        return args.map(params => {
+            return method_foo.apply(this, params);
         });
-
     }
     //排序函数
-    _sortBy = sortBy
-    _obj_has = obj_has
+    _sortBy = sortBy;
+    _obj_has = obj_has;
 }
