@@ -2,19 +2,15 @@
     "compilerOptions": {
         "target": "ESNEXT",
         "module": "commonjs",
-        "lib": [
-            "es2017"
-        ],
+        "lib": ["es2017"],
         "allowJs": false,
         "outDir": "./",
         "strict": true,
         "experimentalDecorators": true,
-        "emitDecoratorMetadata": true
+        "emitDecoratorMetadata": true,
+        "outDir": "dist",
+        "declaration": true
     },
-    "include": [
-        "src"
-    ],
-    "exclude": [
-        "test"
-    ]
+    "include": ["src"],
+    "exclude": ["test"]
 }
