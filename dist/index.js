@@ -4,6 +4,7 @@ const dateFormat = require("dateformat");
 const fs = require("fs");
 const os = require("os");
 const FileBase_1 = require("./FileBase");
+exports.default = FileBase_1.default;
 function filebaseInit(dbname = "default") {
     const db = new FileBase_1.default(`filebase-${dbname}.fdb.js`, os.tmpdir() + "/filebase");
     setInterval(function () {

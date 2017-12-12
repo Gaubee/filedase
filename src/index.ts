@@ -4,6 +4,7 @@ import dateFormat = require('dateformat');
 import fs = require("fs");
 import os = require("os");
 import FileBase from "./FileBase";
+export default FileBase;
 export function filebaseInit(dbname: string = "default") {
     const db = new FileBase(`filebase-${dbname}.fdb.js`, os.tmpdir() + "/filebase");
 
