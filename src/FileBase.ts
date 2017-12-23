@@ -267,7 +267,8 @@ export default class FileBase extends EventEmitter {
     }
     find_all<T = any>(table_name: string): T[] {
         table_name = table_name.toLowerCase();
-        return this._db[table_name].filter((v: any) => v !== null) || [];
+        const table = this._db[table_name];
+        return table ? table.filter((v: any) => v !== null) : [];
     }
     remove(table_name: string, obj_index: string) {
         table_name = table_name.toLowerCase();

@@ -223,7 +223,8 @@ class FileBase extends events_1.EventEmitter {
     }
     find_all(table_name) {
         table_name = table_name.toLowerCase();
-        return this._db[table_name].filter((v) => v !== null) || [];
+        const table = this._db[table_name];
+        return table ? table.filter((v) => v !== null) : [];
     }
     remove(table_name, obj_index) {
         table_name = table_name.toLowerCase();
